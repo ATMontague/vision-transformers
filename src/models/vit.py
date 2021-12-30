@@ -3,23 +3,29 @@ import torch.nn as nn
 
 
 class PatchEmbedding(nn.Module):
+    """
+    Image to Patches, Linear Projection, and Embedding
+    """
 
-    def __init__(self, in_channels=3, patch_size=4, embed_size=768):
+    def __init__(self, in_channels=3, image_size=256, patch_size=4, embed_size=768):
         super(PatchEmbedding, self).__init__()
-        # what is relationship between embed size and input image size?
+        self.image_size = image_size
         self.patch_size = patch_size
-        self.linear_proj = nn.Linear(in_channels*patch_size*patch_size, embed_size)
+        self.input_size = in_channels*patch_size*patch_size
+        self.num_patches = (image_size // patch_size) ** 2
+        self.linear_proj = nn.Conv2d(in_channels=in_channels, out_channels=embed_size, kernel_size=patch_size,
+                                     stride=patch_size)
 
     def forward(self, x):
+        """
+        Forward pass.
+        :param x: tensor w/ shape: [b, in_channels, h, w]
+        :return: tensor w/ shape: [b, num_patches, embed_size]
+        """
 
-        # break up into batches
-        b, ch, h, w = x.shape
-        x = torch.reshape(x, shape=(b, ch, h//self.patch_size, self.patch_size, w//self.patch_size, self.patch_size))
-        x = x.permute(0, 2, 4, 1, 3, 5)
-        x = x.flatten(1, 2)  # [b, num_patches, ch, patch_size, patch_size]
-        x = x.flatten(2, 4)  # [b, num_patches, ch*patch_size*patch_size]
-
-        x = self.linear_proj(x)
+        x = self.linear_proj(x)  # [b, embed_size, num_patches/2, num_patches/2]
+        x = x.flatten(2)  # flatten patches into single dim
+        x = x.transpose(1, 2)
         return x
 
 
